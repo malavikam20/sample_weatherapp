@@ -1,9 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:weather/currentWeather.dart';
 import 'location_data.dart';
+import 'models/location.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(MyApp(
+    key: Key('weather_app'),
+    locations: locations,
+  ));
 }
 
 class UserCredentials {
@@ -14,6 +20,10 @@ class UserCredentials {
 }
 
 class MyApp extends StatefulWidget {
+  final List<Location> locations; // Add this line
+
+  MyApp({required this.locations, required Key key}); // Add this line
+
   @override
   _MyAppState createState() => _MyAppState();
 }
@@ -33,13 +43,21 @@ class _MyAppState extends State<MyApp> {
       onGenerateRoute: (settings) {
         if (settings.name == '/currentWeather') {
           return MaterialPageRoute(
-            builder: (context) => CurrentWeatherPage(locations, context),
+            builder: (context) => CurrentWeatherPage(
+              locations: widget.locations,
+              email: userCredentials!.email,
+              password: userCredentials!.password,
+            ),
           );
         }
         return null;
       },
       home: userCredentials != null
-          ? CurrentWeatherPage(locations, context)
+          ? CurrentWeatherPage(
+              locations: locations,
+              email: userCredentials!.email,
+              password: userCredentials!.password,
+            )
           : LoginPage(this),
     );
   }
@@ -79,17 +97,25 @@ class _LoginPageState extends State<LoginPage> {
             ),
             SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 String email = emailController.text;
                 String password = passwordController.text;
 
                 if (email.isNotEmpty && password.isNotEmpty) {
-                  widget.parent.setState(() {
-                    widget.parent.userCredentials =
-                        UserCredentials(email: email, password: password);
-                  });
+                  // Make the API request
+                  final success = await _makeApiRequest(email, password);
 
-                  Navigator.pushReplacementNamed(context, '/currentWeather');
+                  if (success) {
+                    widget.parent.setState(() {
+                      widget.parent.userCredentials =
+                          UserCredentials(email: email, password: password);
+                    });
+
+                    Navigator.pushReplacementNamed(context, '/currentWeather');
+                  } else {
+                    // Handle login failure (e.g., show an error message)
+                    print('Login failed');
+                  }
                 }
               },
               child: Text('Login'),
@@ -98,5 +124,49 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  Future<bool> _makeApiRequest(String email, String password) async {
+    final String apiUrl = 'https://api.appmastery.co/api/v1/apps/login';
+
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      'CUSTOMERID': '5e72a0c611394600192020e0',
+    };
+
+    final Map<String, String> body = {
+      'email': email,
+      'password': password,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        // Request was successful
+        print('API Response: ${response.body}');
+
+        // Check if the credentials match the allowed values
+        if (email == 'sindhya@appmastery.co' && password == '123456') {
+          return true;
+        } else {
+          print('Invalid credentials');
+          return false;
+        }
+      } else {
+        // Request failed
+        print('API Request failed with status code ${response.statusCode}');
+        print('Response body: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      // An error occurred
+      print('Error making API request: $e');
+      return false;
+    }
   }
 }

@@ -1,45 +1,29 @@
-// import 'dart:html';
-
-import 'package:flutter/material.dart';
-//import 'package:weather/cityDropDown.dart';
-import 'package:weather/models/forcast.dart';
-import 'package:weather/models/location.dart';
-import 'package:weather/models/weather.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'models/location.dart';
+import 'models/weather.dart';
 import 'extensions.dart';
 import 'package:intl/intl.dart';
-//import 'package:weather/main.dart';
 
 class CurrentWeatherPage extends StatefulWidget {
   final List<Location> locations;
-  final BuildContext context;
-  const CurrentWeatherPage(this.locations, this.context);
+  final String email;
+  final String password;
+
+  const CurrentWeatherPage({
+    required this.locations,
+    required this.email,
+    required this.password,
+  });
 
   @override
-  _CurrentWeatherPageState createState() =>
-      _CurrentWeatherPageState(this.locations, this.context);
+  _CurrentWeatherPageState createState() => _CurrentWeatherPageState();
 }
 
 class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
-  final List<Location> locations;
-  Location location;
-  final BuildContext context;
-  _CurrentWeatherPageState(List<Location> locations, BuildContext context)
-      : this.locations = locations,
-        this.context = context,
-        this.location = locations[0];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        backgroundColor: Colors.grey[100],
-        body: ListView(children: <Widget>[
-          currentWeatherViews(this.locations, this.location, this.context),
-          forcastViewsHourly(this.location),
-          forcastViewsDaily(this.location),
-        ]));
-  }
+  late Location location;
+  late Weather? weather;
 
   void _changeLocation(Location newLocation) {
     setState(() {
@@ -47,72 +31,82 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
     });
   }
 
-  Widget currentWeatherViews(
-      List<Location> locations, Location location, BuildContext context) {
-    Weather _weather;
+  @override
+  void initState() {
+    super.initState();
+    location = widget.locations[0];
+    _fetchCurrentWeather();
+  }
 
+  Future<void> _fetchCurrentWeather() async {
+    int maxRetries = 3;
+    int retry = 0;
+
+    while (retry < maxRetries) {
+      final response = await http.post(
+        Uri.parse('https://api.appmastery.co/api/v1/apps/login'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': widget.email,
+          'password': widget.password,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Login successful, fetch weather data
+        final jsonResponse = jsonDecode(response.body);
+        // Assuming your API response structure, modify accordingly
+        weather = Weather.fromJson(jsonResponse['weather']);
+        break; // Break the loop if successful
+      } else if (response.statusCode == 429) {
+        // Too many requests, wait before retrying
+        await Future.delayed(Duration(seconds: 5 * (retry + 1)));
+        retry++;
+      } else {
+        // Handle other errors
+        print('Login failed with status code ${response.statusCode}');
+        break;
+      }
+    }
+
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: ListView(
+        children: <Widget>[
+          currentWeatherViews(),
+        ],
+      ),
+    );
+  }
+
+  Widget currentWeatherViews() {
     return FutureBuilder(
       builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          _weather = snapshot.data as Weather;
-          // ignore: unnecessary_null_comparison
-          if (_weather == null) {
-            return Text("Error getting weather");
-          } else {
-            return Column(children: [
-              createAppBar(locations, location, context),
-              // CityDropDown(locations),
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Text("Error: ${snapshot.error}");
+        } else if (!snapshot.hasData || snapshot.data == null) {
+          return Text("Error getting weather");
+        } else {
+          Weather _weather = snapshot.data as Weather;
+          return Column(
+            children: [
+              createAppBar(widget.locations, location, context),
               weatherBox(_weather),
               weatherDetailsBox(_weather),
-            ]);
-          }
-        } else {
-          return Center(child: CircularProgressIndicator());
+            ],
+          );
         }
       },
-      future: getCurrentWeather(location),
-    );
-  }
-
-  Widget forcastViewsHourly(Location location) {
-    Forecast _forcast;
-
-    return FutureBuilder(
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          _forcast = snapshot.data as Forecast;
-          // ignore: unnecessary_null_comparison
-          if (_forcast == null) {
-            return Text("Error getting weather");
-          } else {
-            return hourlyBoxes(_forcast);
-          }
-        } else {
-          return Center(child: CircularProgressIndicator());
-        }
-      },
-      future: getForecast(location),
-    );
-  }
-
-  Widget forcastViewsDaily(Location location) {
-    Forecast _forcast;
-
-    return FutureBuilder(
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          _forcast = snapshot.data as Forecast;
-          // Handle the data here
-          return dailyBoxes(_forcast);
-        } else if (snapshot.hasError) {
-          // Handle errors
-          return Text("Error: ${snapshot.error}");
-        } else {
-          // Show a loading indicator while fetching data
-          return Center(child: CircularProgressIndicator());
-        }
-      },
-      future: getForecast(location),
+      future: Future.value(weather), // Use the weather fetched during login
     );
   }
 
@@ -369,51 +363,6 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
     );
   }
 
-  Widget hourlyBoxes(Forecast _forecast) {
-    return Container(
-        margin: EdgeInsets.symmetric(vertical: 0.0),
-        height: 150.0,
-        child: ListView.builder(
-            padding:
-                const EdgeInsets.only(left: 8, top: 0, bottom: 0, right: 8),
-            scrollDirection: Axis.horizontal,
-            itemCount: _forecast.hourly.length,
-            itemBuilder: (BuildContext context, int index) {
-              return Container(
-                  padding: const EdgeInsets.only(
-                      left: 10, top: 15, bottom: 15, right: 10),
-                  margin: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(Radius.circular(18)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 2,
-                          blurRadius: 2,
-                          offset: Offset(0, 1), // changes position of shadow
-                        )
-                      ]),
-                  child: Column(children: [
-                    Text(
-                      "${_forecast.hourly[index].temp}°",
-                      style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 17,
-                          color: Colors.black),
-                    ),
-                    getWeatherIcon(_forecast.hourly[index].icon),
-                    Text(
-                      "${getTimeFromTimestamp(_forecast.hourly[index].dt)}",
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          color: Colors.grey),
-                    ),
-                  ]));
-            }));
-  }
-
   String getTimeFromTimestamp(int timestamp) {
     var date = new DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     var formatter = new DateFormat('h:mm a');
@@ -426,35 +375,10 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
     return formatter.format(date);
   }
 
-  Widget dailyBoxes(Forecast _forcast) {
-    return Expanded(
-        child: ListView.builder(
-            shrinkWrap: true,
-            physics: ClampingScrollPhysics(),
-            padding:
-                const EdgeInsets.only(left: 8, top: 0, bottom: 0, right: 8),
-            itemCount: _forcast.daily.length,
-            itemBuilder: (BuildContext context, int index) {
-              return Container(
-                  padding: const EdgeInsets.only(
-                      left: 10, top: 5, bottom: 5, right: 10),
-                  margin: const EdgeInsets.all(5),
-                  child: Row(children: [
-                    Expanded(
-                        child: Text(
-                      "${getDateFromTimestamp(_forcast.daily[index].dt)}",
-                      style: TextStyle(fontSize: 14, color: Colors.black),
-                    )),
-                    Expanded(
-                        child: getWeatherIconSmall(_forcast.daily[index].icon)),
-                    Expanded(
-                        child: Text(
-                      "${_forcast.daily[index].high.toInt()}/${_forcast.daily[index].low.toInt()}",
-                      textAlign: TextAlign.right,
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    )),
-                  ]));
-            }));
+  String getDayFromTimestamp(int timestamp) {
+    var date = new DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    var formatter = new DateFormat('d');
+    return formatter.format(date);
   }
 }
 
@@ -514,38 +438,4 @@ Future<Weather?> getCurrentWeather(Location location) async {
   }
 
   return weather;
-}
-
-Future<Forecast?> getForecast(Location location) async {
-  Forecast? forecast;
-
-  String apiKey = "fbb3ba27b78b905ec48a1e1354370b1e";
-  String lat = location.lat;
-  String lon = location.lon;
-
-  var url = Uri.https('api.openweathermap.org', '/data/2.5/onecall', {
-    'lat': lat,
-    'lon': lon,
-    'appid': apiKey,
-    'units': 'metric',
-  });
-
-  final response = await http.get(url);
-
-  if (response.statusCode == 200) {
-    var jsonResponse = jsonDecode(response.body);
-    // Check if the response contains an error message
-    if (jsonResponse['cod'] != null && jsonResponse['cod'] == '404') {
-      print('City not found');
-      return null;
-    } else if (response.statusCode != 200) print('Failed to fetch forecast');
-    // Parse the forecast data
-    forecast = Forecast.fromJson(jsonResponse);
-  } else {
-    // Handle the error, e.g., throw an exception or return null.
-    print('Failed to fetch forecast: ${response.statusCode}');
-    return null;
-  }
-
-  return forecast;
 }
