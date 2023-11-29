@@ -20,6 +20,7 @@ class Weather {
       required this.wind,
       required this.icon});
 
+  //factory constructor which is used to return an instance of the class
   factory Weather.fromJson(Map<String, dynamic> json) {
     print(json);
     return Weather(

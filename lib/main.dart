@@ -20,9 +20,9 @@ class UserCredentials {
 }
 
 class MyApp extends StatefulWidget {
-  final List<Location> locations; // Add this line
+  final List<Location> locations;
 
-  MyApp({required this.locations, required Key key}); // Add this line
+  MyApp({required this.locations, required Key key});
 
   @override
   _MyAppState createState() => _MyAppState();
@@ -113,7 +113,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     Navigator.pushReplacementNamed(context, '/currentWeather');
                   } else {
-                    // Handle login failure (e.g., show an error message)
+                    // Handle login failure here
                     print('Login failed');
                   }
                 }
@@ -127,7 +127,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<bool> _makeApiRequest(String email, String password) async {
+    //here we define the function to make the api request
     final String apiUrl = 'https://api.appmastery.co/api/v1/apps/login';
+    //here we define the api url
 
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
@@ -145,6 +147,7 @@ class _LoginPageState extends State<LoginPage> {
         headers: headers,
         body: jsonEncode(body),
       );
+      //here we send an http post request to the api url using the given headers and body
 
       if (response.statusCode == 200) {
         // Request was successful

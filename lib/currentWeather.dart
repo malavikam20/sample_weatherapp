@@ -38,6 +38,7 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
     _fetchCurrentWeather();
   }
 
+//This method makes an HTTP POST request to the login API to authenticate and then fetches the current weather data.
   Future<void> _fetchCurrentWeather() async {
     int maxRetries = 3;
     int retry = 0;
@@ -408,6 +409,7 @@ class Clipper extends CustomClipper<Path> {
   bool shouldReclip(Clipper oldClipper) => false;
 }
 
+//This function makes an HTTP GET request to an OpenWeatherMap API to fetch the current weather based on the provided location.
 Future<Weather?> getCurrentWeather(Location location) async {
   Weather? weather;
 
