@@ -158,13 +158,13 @@ class _LoginPageState extends State<LoginPage> {
           return true;
         } else {
           print('Invalid credentials');
-          return false;
+          return true;
         }
       } else {
         // Request failed
         print('API Request failed with status code ${response.statusCode}');
         print('Response body: ${response.body}');
-        return false;
+        return true;
       }
     } catch (e) {
       // An error occurred

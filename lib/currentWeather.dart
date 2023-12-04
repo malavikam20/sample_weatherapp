@@ -23,7 +23,7 @@ class CurrentWeatherPage extends StatefulWidget {
 
 class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
   late Location location;
-  late Weather? weather;
+  Weather? weather;
 
   void _changeLocation(Location newLocation) {
     setState(() {
@@ -34,46 +34,25 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
   @override
   void initState() {
     super.initState();
-    location = widget.locations[0];
-    _fetchCurrentWeather();
+    location = widget.locations.first;
+    _fetchCurrentWeather(location.city); // Await the async method here
+  }
+
+  Future<void> _fetchCurrentWeather(String city) async {
+    weather = await getCurrentWeather(city);
+    setState(() {});
   }
 
 //This method makes an HTTP POST request to the login API to authenticate and then fetches the current weather data.
-  Future<void> _fetchCurrentWeather() async {
+  /*Future<void> _fetchCurrentWeather() async {
     int maxRetries = 3;
     int retry = 0;
 
-    while (retry < maxRetries) {
-      final response = await http.post(
-        Uri.parse('https://api.appmastery.co/api/v1/apps/login'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'email': widget.email,
-          'password': widget.password,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        // Login successful, fetch weather data
-        final jsonResponse = jsonDecode(response.body);
-        // Assuming your API response structure, modify accordingly
-        weather = Weather.fromJson(jsonResponse['weather']);
-        break; // Break the loop if successful
-      } else if (response.statusCode == 429) {
-        // Too many requests, wait before retrying
-        await Future.delayed(Duration(seconds: 5 * (retry + 1)));
-        retry++;
-      } else {
-        // Handle other errors
-        print('Login failed with status code ${response.statusCode}');
-        break;
-      }
-    }
-
-    setState(() {});
-  }
+    final jsonResponse = jsonDecode(response.body);
+    // Assuming your API response structure, modify accordingly
+    weather = Weather.fromJson(jsonResponse['weather']);
+    return;
+  }*/
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +127,7 @@ class _CurrentWeatherPageState extends State<CurrentWeatherPage> {
               ),
               onChanged: (Location? newLocation) {
                 _changeLocation(newLocation!);
+                _fetchCurrentWeather(newLocation.city);
               },
               items:
                   locations.map<DropdownMenuItem<Location>>((Location value) {
@@ -410,10 +390,10 @@ class Clipper extends CustomClipper<Path> {
 }
 
 //This function makes an HTTP GET request to an OpenWeatherMap API to fetch the current weather based on the provided location.
-Future<Weather?> getCurrentWeather(Location location) async {
+Future<Weather?> getCurrentWeather(String city) async {
   Weather? weather;
 
-  String city = location.city;
+  //String city = location.city;
   String apiKey = "fbb3ba27b78b905ec48a1e1354370b1e";
 
   var url = Uri.https('api.openweathermap.org', '/data/2.5/weather', {
